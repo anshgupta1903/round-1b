@@ -1,6 +1,7 @@
 # How to run this repository:
 git clone https://github.com/anshgupta1903/round-1b
 
+
 # 🔍 Round-1B: Persona-Driven PDF Intelligence | Adobe India Hackathon 2025
 
 This project is built for **Round-1B** of the Adobe India Hackathon 2025. It transforms a collection of unstructured PDFs into intelligent, persona-focused summaries — highlighting only what matters most based on a user's role and goal.
@@ -66,6 +67,11 @@ It contains:
 - Snippet analysis from top 3 sections
 
 ---
+
+# to install model locally :
+pip install sentence_transformers
+python download_model.py
+so that model gets saved loacally
 
 ## 🐳 Docker Instructions
 

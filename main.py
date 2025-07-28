@@ -256,7 +256,7 @@ def main():
                 })
 
     # Step 5: load embedding model
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    model = SentenceTransformer('./all-mini-lm-l6-v2-local')
 
     # Step 6: rank sections
     ranked = rank_headings_and_titles(outlines, persona, job, model, keywords)

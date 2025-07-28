@@ -1,20 +1,21 @@
-FROM --platform=linux/amd64 python:3.10
+# Use a Python base image
+FROM python:3.9-slim
 
-# Set working directory inside container
+# Set workdir
 WORKDIR /app
 
-# Copy requirements file first for better caching
+# Copy requirements and install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download the spaCy language model
-RUN python -m spacy download en_core_web_sm
+# Copy download script
+COPY download_model.py .
 
-# Copy ALL remaining project files and directories
-COPY . .
+# Create model directory
+RUN mkdir -p /app/model
 
-# Download the model during the build process
-# RUN python download_model.py
+# Download the model into /app/model
+RUN python download_model.py
 
-# Set default command to run your main script
-CMD ["python", "main.py"]
+# Default command just to keep the container alive or check contents
+CMD ["ls", "-l", "/app/model"]
