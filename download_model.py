@@ -1,8 +1,7 @@
-# download_model.py
 from sentence_transformers import SentenceTransformer
 import os
 
-def download_and_save(model_name='all-MiniLM-L6-v2', save_dir='/app/model'):
+def download_and_save(model_name='all-MiniLM-L6-v2', save_dir='model'):
     print(f"Downloading model '{model_name}'...")
     os.makedirs(save_dir, exist_ok=True)
     model = SentenceTransformer(model_name)

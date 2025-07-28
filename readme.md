@@ -69,6 +69,7 @@ It contains:
 ---
 
 # to install model locally :
+if model is not getting downloaded by docker command then 
 pip install sentence_transformers
 python download_model.py
 so that model gets saved loacally
@@ -80,7 +81,7 @@ so that model gets saved loacally
 Run this **only once** to build and prepare the environment:
 
 ```powershell
-docker build -t pdf-outline-app . ; if ($?) { docker run --rm -v ${PWD}/pdfs:/app/pdfs -v ${PWD}/output:/app/output pdf-outline-app }
+docker build -t pdf-outline-app .
 
 
 docker run --rm -v ${PWD}/pdfs:/app/pdfs -v ${PWD}/output:/app/output -v ${PWD}/input.txt:/app/input.txt pdf-outline-app
