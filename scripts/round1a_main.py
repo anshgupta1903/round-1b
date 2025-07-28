@@ -1666,11 +1666,11 @@ def process_all_pdfs(input_dir, output_dir):
             start_time = time.time()
             
             base_filename = os.path.splitext(filename)[0]
-            json_output_path = os.path.join(output_dir, base_filename + ".json")
+            output_path = os.path.join(output_dir, base_filename + ".json")
             
             output_data = process_pdf(pdf_path)
             
-            with open(json_output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, 'w', encoding='utf-8') as f:
                 json.dump(output_data, f, indent=4)
             end_time = time.time()
             print(f"--- Finished {filename} in {end_time - start_time:.2f} seconds. ---")

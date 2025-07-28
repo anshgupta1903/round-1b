@@ -4,3 +4,4 @@ scipy
 pymupdf
 pandas
 joblib
+rapidfuzz

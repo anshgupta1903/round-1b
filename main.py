@@ -1346,7 +1346,7 @@ import fitz
 import re
 
 # Your Round 1A logic (make sure path matches your project)
-from app.scripts.round1a_main import process_all_pdfs
+from scripts.round1a_main import process_all_pdfs
 
 # Load spaCy model
 nlp = spacy.load("en_core_web_sm")
@@ -1521,20 +1521,21 @@ def compute_boost(text, keywords):
 
 
 def main():
-    input_dir = "./Collection/pdfs"
-    output_dir_1a = "./Collection/title_and_headings"
-    output_dir = "./Collection/output"
+    print("Script Started")
+    input_dir = "./pdfs"
+    # output_dir_1a = "./Collection/title_and_headings"
+    output_dir = "./output"
     os.makedirs(output_dir, exist_ok=True)
 
     # Step 1: Run Round 1A to create outline JSONs
     print("📄 Extracting outlines from PDFs...")
-    process_all_pdfs(input_dir, output_dir_1a)
+    process_all_pdfs(input_dir, output_dir)
 
     # Step 2: Define persona & job
     print("Enter persona")
-    persona = input()
+    persona = "Travel Planner"
     print("Enter job to be done: ")
-    job = input()
+    job = "Plan a trip for 4 days for a friends group of 10."
 
     # Step 3: Extract and rank keywords
     stop_words = {"a", "an", "the", "for", "and", "or", "of", "in", "to", "with", "on", "at", "from", "by", "as", "is", "are"}
@@ -1575,7 +1576,7 @@ def main():
                 })
 
     # Step 5: load embedding model
-    model = SentenceTransformer('./app/local_model')
+    model = SentenceTransformer('all-MiniLM-L6-v2')
 
     # Step 6: rank sections
     ranked = rank_headings_and_titles(outlines, persona, job, model, keywords)
@@ -1608,8 +1609,308 @@ def main():
     with open(os.path.join(output_dir, "challenge1b_output.json"), "w", encoding='utf-8') as f:
         json.dump(final_output, f, indent=2)
 
-    print("✅ Done! Output saved to output/challenge1b_output.json")
+    print("✅ Done! Output saved to Collection/output/challenge1b_output.json")
 
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+# import os
+# import json
+# import time
+# import spacy
+# from sentence_transformers import SentenceTransformer
+# from scipy.spatial.distance import cosine
+# import fitz
+# import re
+# from rapidfuzz import fuzz
+
+# # Your Round 1A logic (make sure path matches your project)
+# # Ensure this import works correctly based on your project structure.
+# # If main.py is in the root and scripts is a folder, you might need to adjust the Python path
+# # or use a different import method depending on how you run the script.
+# from scripts.round1a_main import process_all_pdfs
+
+# # Load spaCy model
+# print("Loading spaCy model...")
+# try:
+#     nlp = spacy.load("en_core_web_sm")
+#     print("✅ spaCy model loaded.")
+# except OSError:
+#     print("❌ spaCy model 'en_core_web_sm' not found.")
+#     print("Please run 'python -m spacy download en_core_web_sm' to install it.")
+#     exit()
+
+
+# def extract_and_rank_keywords(text):
+#     """
+#     Extracts keywords from text and ranks them:
+#     - named entities first (more important)
+#     - then noun chunks sorted by length
+#     """
+#     doc = nlp(text)
+#     entities = {ent.text.lower() for ent in doc.ents if len(ent.text.strip()) > 1}
+#     noun_chunks = {chunk.text.lower() for chunk in doc.noun_chunks if len(chunk.text.strip()) > 1}
+#     # Remove overlaps
+#     noun_chunks = noun_chunks - entities
+#     # Sort noun chunks by length desc
+#     sorted_noun_chunks = sorted(list(noun_chunks), key=lambda x: len(x), reverse=True)
+#     # Combine: entities first, then long noun chunks
+#     keywords = list(entities) + sorted_noun_chunks
+#     return keywords
+
+
+# def rank_headings_and_titles(outline_list, persona, job, model, keywords, top_n=20):
+#     """
+#     Rank headings & titles: ensure top N cover different keywords first,
+#     then fill remaining spots by highest score.
+#     """
+#     query = persona + ". " + job
+#     print(f"Encoding query: '{query}'")
+#     query_emb = model.encode(query)
+
+#     all_candidates = []
+
+#     for doc in outline_list:
+#         doc_name = doc["document"]
+
+#         # Title
+#         title_text = doc.get("title", "")
+#         if title_text:
+#             title_emb = model.encode(title_text.lower())
+#             base_score = 1 - cosine(query_emb, title_emb)
+#             boost = compute_boost(title_text, keywords)
+#             final_score = (base_score * boost) * 3.0  # title weight
+
+#             all_candidates.append({
+#                 "document": doc_name,
+#                 "page_number": 0,
+#                 "section_title": title_text,
+#                 "level": "TITLE",
+#                 "similarity": float(final_score),
+#                 "keywords": [kw for kw in keywords if kw.lower() in title_text.lower()]
+#             })
+
+#         # Headings
+#         for h in doc["outline"]:
+#             heading_text = h["text"]
+#             heading_emb = model.encode(heading_text.lower())
+#             base_score = 1 - cosine(query_emb, heading_emb)
+#             boost = compute_boost(heading_text, keywords)
+#             weight = {"H1": 2.0, "H2": 1.5, "H3": 1.2, "H4": 1.0}.get(h["level"], 1.0)
+#             final_score = (base_score * boost) * weight
+
+#             all_candidates.append({
+#                 "document": doc_name,
+#                 "page_number": h["page"],
+#                 "section_title": heading_text,
+#                 "level": h["level"],
+#                 "similarity": float(final_score),
+#                 "keywords": [kw for kw in keywords if kw.lower() in heading_text.lower()]
+#             })
+
+#     if not all_candidates:
+#         print("⚠️ No candidates were generated for ranking. Check if outlines were loaded correctly.")
+#         return []
+
+#     # Step 2: Pick top heading for each keyword first
+#     selected = []
+#     used_texts = set()
+
+#     for kw in keywords:
+#         kw_candidates = [c for c in all_candidates if kw in c["keywords"] and c["section_title"] not in used_texts]
+#         if kw_candidates:
+#             best = max(kw_candidates, key=lambda x: x["similarity"])
+#             selected.append(best)
+#             used_texts.add(best["section_title"])
+#         if len(selected) >= top_n:
+#             break
+
+#     # Step 3: Fill remaining spots by highest score, skipping used ones
+#     if len(selected) < top_n:
+#         remaining_candidates = sorted(
+#             [c for c in all_candidates if c["section_title"] not in used_texts],
+#             key=lambda x: x["similarity"],
+#             reverse=True
+#         )
+#         for c in remaining_candidates:
+#             if len(selected) >= top_n:
+#                 break
+#             selected.append(c)
+#             used_texts.add(c["section_title"])
+
+#     # Step 4: Add importance_rank
+#     for idx, item in enumerate(selected):
+#         item["importance_rank"] = idx + 1
+
+#     return selected
+
+
+# def extract_subsections(top_sections, pdf_dir):
+#     results = []
+#     print(f"\n extracting subsections from top {len(top_sections[:3])} sections...")
+#     for sec in top_sections[:3]:  # Limit to top 3 for snippet extraction
+#         pdf_path = os.path.join(pdf_dir, sec["document"])
+#         snippet = ""
+#         try:
+#             doc = fitz.open(pdf_path)
+#             page = doc[sec["page_number"]]
+#             text = page.get_text()
+            
+#             # Find a paragraph containing the section title for a relevant snippet
+#             paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+#             for para in paragraphs:
+#                 # Use fuzzy matching for robustness
+#                 if fuzz.partial_ratio(sec["section_title"].lower(), para.lower()) > 80:
+#                     snippet = para
+#                     break
+            
+#             if not snippet and paragraphs:
+#                 snippet = paragraphs[0] # Fallback to the first paragraph
+            
+#             results.append({
+#                 "document": sec["document"],
+#                 "page_number": sec["page_number"],
+#                 "refined_text": snippet[:1000]  # limit length
+#             })
+#         except Exception as e:
+#             print(f"❌ Error reading PDF {pdf_path} on page {sec['page_number']}: {e}")
+
+#     return results
+
+
+# def compute_boost(text, keywords):
+#     """
+#     Computes a score boost if keywords are found in the text.
+#     Uses fuzzy matching for more robust detection.
+#     """
+#     text_lower = text.lower()
+#     max_boost = 1.0
+#     for kw in keywords:
+#         kw_lower = kw.lower()
+#         # Use partial ratio to find keyword within text
+#         partial_score = fuzz.partial_ratio(kw_lower, text_lower)
+#         if partial_score > 95: # Very high confidence match
+#             max_boost = max(max_boost, 2.0) # Strong boost
+#         elif partial_score > 80: # Good partial match
+#             max_boost = max(max_boost, 1.5) # Medium boost
+#     return max_boost
+
+
+# def main():
+#     print("🚀 Script Started")
+    
+#     # --- Configuration ---
+#     input_dir = "./pdfs"
+#     # This is where the final output of this script will be saved.
+#     output_dir = "./output"
+#     # *** LIKELY FIX: This is where the intermediate outlines from Round1A are located. ***
+#     # Your folder structure suggests they are in 'title_and_headings'.
+#     # outline_source_dir = "./title_and_headings" 
+    
+#     os.makedirs(output_dir, exist_ok=True)
+
+#     # Step 1: Run Round 1A to create outline JSONs
+#     print(f"📄 Calling process_all_pdfs to extract outlines from '{input_dir}' and save to '{output_dir}'...")
+#     # We pass the correct source directory to the function.
+#     process_all_pdfs(input_dir, output_dir)
+#     print("✅ Outline extraction process finished.")
+
+#     # Step 2: Define persona & job
+#     persona = "Travel Planner"
+#     job = "Plan a trip for 4 days for a friends group of 10."
+#     print(f"\n👤 Persona: {persona}")
+#     print(f"📝 Job: {job}")
+
+#     # Step 3: Extract and rank keywords
+#     stop_words = {"a", "an", "the", "for", "and", "or", "of", "in", "to", "with", "on", "at", "from", "by", "as", "is", "are"}
+#     job_keywords_raw = re.findall(r'\b\w+\b', job.lower())
+#     persona_keywords_raw = re.findall(r'\b\w+\b', persona.lower())
+    
+#     seen = set()
+#     job_keywords = [w for w in job_keywords_raw if w not in stop_words and not (w in seen or seen.add(w))]
+#     persona_keywords = [w for w in persona_keywords_raw if w not in stop_words and not (w in seen or seen.add(w))]
+    
+#     keywords = job_keywords + persona_keywords
+#     print(f"🧠 Extracted & ordered keywords: {keywords}")
+
+#     # Step 4: Load outlines from the correct source directory
+#     print(f"\n📂 Loading outlines from: '{output_dir}'")
+#     outlines = []
+#     if not os.path.exists(output_dir) or not os.listdir(output_dir):
+#         print(f"❌ Error: No outline files found in '{output_dir}'.")
+#         print("Please ensure the 'process_all_pdfs' script is correctly generating JSON files in that directory.")
+#         exit()
+        
+#     for filename in os.listdir(output_dir):
+#         if filename.endswith(".json"):
+#             try:
+#                 with open(os.path.join(output_dir, filename), 'r', encoding='utf-8') as f:
+#                     data = json.load(f)
+#                     outlines.append({
+#                         "document": filename.replace(".json", ".pdf"),
+#                         "title": data.get("title", ""),
+#                         "outline": data.get("outline", [])
+#                     })
+#             except (json.JSONDecodeError, KeyError) as e:
+#                 print(f"⚠️ Warning: Could not process file {filename}. Error: {e}")
+#     print(f"✅ Loaded {len(outlines)} outline files.")
+
+#     if not outlines:
+#         print("❌ No valid outlines were loaded. Exiting.")
+#         exit()
+
+#     # Step 5: Load embedding model
+#     print("\n🔄 Loading sentence transformer model...")
+#     model = SentenceTransformer('all-MiniLM-L6-v2')
+#     print("✅ Model loaded.")
+
+#     # Step 6: Rank sections
+#     print("\n⚖️ Ranking sections based on persona and job...")
+#     ranked = rank_headings_and_titles(outlines, persona, job, model, keywords)
+#     topN = ranked[:20]
+#     print(f"✅ Found {len(topN)} top sections.")
+
+#     # Step 7: Extract subsections
+#     subsections = extract_subsections(topN, input_dir)
+#     print(f"✅ Extracted {len(subsections)} subsection snippets.")
+
+#     # Step 8: Build final output
+#     final_output = {
+#         "metadata": {
+#             "input_documents": [o["document"] for o in outlines],
+#             "persona": persona,
+#             "job_to_be_done": job,
+#             "processing_timestamp": time.strftime("%Y-%m-%dT%H:%M:%S")
+#         },
+#         "extracted_sections": [
+#             {
+#                 "document": item["document"],
+#                 "page_number": item["page_number"],
+#                 "section_title": item["section_title"],
+#                 "level": item["level"],
+#                 "importance_rank": item["importance_rank"]
+#             } for item in topN
+#         ],
+#         "subsection_analysis": subsections
+#     }
+
+#     # Step 9: Save output
+#     output_path = os.path.join(output_dir, "challenge1b_output.json")
+#     print(f"\n💾 Saving final output to {output_path}")
+#     with open(output_path, "w", encoding='utf-8') as f:
+#         json.dump(final_output, f, indent=4)
+
+#     print("\n🎉 Done! Script finished successfully.")
+
+
+# if __name__ == "__main__":
+#     main()
